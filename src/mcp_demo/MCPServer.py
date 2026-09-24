@@ -100,6 +100,32 @@ def list_todo(
       todos.sort(key= lambda todo: todo.created_at, reverse=True)
 
       return todos
+    
+@mcp.tool
+def get_todo(
+  todo_id: Annotated[str, "Todo id to get todo"]
+) -> Todo | None:
+  """Get todo by id"""
+
+  with _lock:
+    _, todo= _get_or_raise(todo_id)
+
+    return todo
+  
+@mcp.tool
+def delete_todo(
+  todo_id: Annotated[str, "The id to delete todo"]
+) -> str:
+  """Delete the todo by id and return the id"""
+
+  with _lock:
+   todos, todo= _get_or_raise(todo_id)
+   del todos[todo_id]
+   _save(todos)
+
+  return f"Deleted todo of {todo_id}"
+
+
 
 
 
