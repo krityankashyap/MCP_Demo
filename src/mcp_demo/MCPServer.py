@@ -86,6 +86,23 @@ def create_todo(
   # We release the lock after we have save the todos
   return todo
 
+@mcp.tool
+def list_todo(
+    status= Annotated[Status | None, "Complete, pending, deleted or None to list all"]= None
+) -> list[Todo]:
+  """List todos newly first. Optinoally filter by status"""
+
+  with _lock:
+    todos= list[Todo](_load().values())
+
+    if status is not None:
+      todos= [todo for todo in todos if todo.status== status]
+      todos.sort(key= lambda todo: todo.created_at, reverse=True)
+
+      return todos
+
+
+
 
 
 
