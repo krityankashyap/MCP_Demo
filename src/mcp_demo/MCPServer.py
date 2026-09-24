@@ -1,10 +1,13 @@
 import datetime
 import json
+import uuid
+import threading
 from pathlib import Path
 from time import timezone
 from fastmcp import FastMCP
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, Annotated
+from fastmcp.exceptions import ToolError
 
 mcp= FastMCP(
   name="Todo",
@@ -17,6 +20,8 @@ mcp= FastMCP(
 Status= Literal("Complete", "Pending", "Deleted")
 
 STORE_PATH= Path(__file__).with_name("todos.json")  #local file to store todos
+
+_lock= threading.Lock()  # Lock to synchronise the access to the store
 
 class Todo(BaseModel):
   id: str
@@ -49,6 +54,37 @@ def _get_or_raise(todoId: str) -> tuple[dict[str, Todo], Todo]:
     raise ValueError(f"todo with {todoId} not found")
   
   return todos, todo
+
+
+@mcp.tool
+def create_todo(
+    title: Annotated[str, "Short title of todos"],
+    description: Annotated[str, "Optional long description"]= "",
+    Status: Annotated[Literal["Complete", "Pending", "Deleted"], "pending, completed, deleted"]= "pending",
+) -> Todo | None:
+  """Create a todo and return"""
+
+  title= title.strip()
+
+  if not title:
+    raise ToolError("Title cannot be empty")
+  
+  now= _now()
+  todo= Todo(
+    id=uuid.uuid4().hex[:8],
+    title= title,
+    description= description[:100],
+    status=Status,
+    created_at=now(),
+    updated_at=now()
+  )
+  with _lock:  # We acquire the lock to pretent concurrent access to store 
+    todos= _load()
+    todos[todo.id]= todo
+    _save(todos)
+  
+  # We release the lock after we have save the todos
+  return todo
 
 
 
