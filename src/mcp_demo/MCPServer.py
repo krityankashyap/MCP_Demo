@@ -1,9 +1,8 @@
-import datetime
 import json
 import uuid
 import threading
 from pathlib import Path
-from time import timezone
+from datetime import datetime, timezone
 from fastmcp import FastMCP
 from pydantic import BaseModel
 from typing import Literal, Annotated
@@ -17,7 +16,7 @@ mcp= FastMCP(
   )
 )
 
-Status= Literal("Complete", "Pending", "Deleted")
+Status= Literal["Complete", "Pending", "Deleted"]
 
 STORE_PATH= Path(__file__).with_name("todos.json")  #local file to store todos
 
@@ -32,7 +31,7 @@ class Todo(BaseModel):
   updated_at: str
 
 def _now() -> str:
-  return datetime.now(timezone.utc).replace(mircosecond=0).isoformat()
+  return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 def _load() -> dict[str, Todo]:
   if not STORE_PATH.exists():
@@ -43,7 +42,9 @@ def _load() -> dict[str, Todo]:
 
 
 def _save(todos: dict[str, Todo]) -> None:
-  STORE_PATH.write_text([todo.model_dump() for todo in todos.values], indent=2) + "/n"
+  STORE_PATH.write_text(
+    json.dumps([todo.model_dump() for todo in todos.values()], indent=2) + "\n"
+  )
 
 
 def _get_or_raise(todoId: str) -> tuple[dict[str, Todo], Todo]:
@@ -75,8 +76,8 @@ def create_todo(
     title= title,
     description= description[:100],
     status=Status,
-    created_at=now(),
-    updated_at=now()
+    created_at=now,
+    updated_at=now
   )
   with _lock:  # We acquire the lock to pretent concurrent access to store 
     todos= _load()
@@ -88,7 +89,7 @@ def create_todo(
 
 @mcp.tool
 def list_todo(
-    status= Annotated[Status | None, "Complete, pending, deleted or None to list all"]= None
+    status: Annotated[Status | None, "Complete, pending, deleted or None to list all"] = None
 ) -> list[Todo]:
   """List todos newly first. Optinoally filter by status"""
 
@@ -124,6 +125,11 @@ def delete_todo(
    _save(todos)
 
   return f"Deleted todo of {todo_id}"
+
+if __name__ == "__main__":
+
+  mcp.run()
+
 
 
 
